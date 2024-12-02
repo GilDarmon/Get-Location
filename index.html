@@ -30,7 +30,7 @@
             margin: 15px 0;
             color: #ff0000;
         }
-        .coordinates {
+        .coordinates, #address {
             font-size: 18px;
             margin: 10px 0;
         }
@@ -51,6 +51,7 @@
     <p id="status"></p>
     <p class="coordinates" id="latitude"></p>
     <p class="coordinates" id="longitude"></p>
+    <p id="address"></p>
     <div id="map"></div>
 
     <script>
@@ -87,6 +88,18 @@
             L.marker([latitude, longitude]).addTo(map)
                 .bindPopup("You are here!")
                 .openPopup();
+
+            // Get address using OpenStreetMap's Nominatim API
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
+                .then(response => response.json())
+                .then(data => {
+                    const address = data.display_name;
+                    document.getElementById("address").textContent = "Address: " + address;
+                })
+                .catch(error => {
+                    console.error('Error fetching address:', error);
+                    document.getElementById("address").textContent = "Unable to fetch address.";
+                });
 
             // Send the latitude and longitude as JSON via HTTPS
             const data = {
