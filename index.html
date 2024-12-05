@@ -1,144 +1,94 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Get Location</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            text-align: center;
-            background-color: #f4f4f9;
-        }
-        h1 {
-            color: #333;
-        }
-        button {
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        #status {
-            margin: 15px 0;
-            color: #ff0000;
-        }
-        .coordinates, #address {
-            font-size: 18px;
-            margin: 10px 0;
-        }
-        #map {
-            height: 400px;
-            width: 100%;
-            margin-top: 20px;
-            border: 2px solid #ddd;
-            border-radius: 10px;
-        }
-    </style>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-</head>
-<body>
-    <h1>Get Your Location</h1>
-    <button onclick="getLocation()">Get Location</button>
-    <p id="status"></p>
-    <p class="coordinates" id="latitude"></p>
-    <p class="coordinates" id="longitude"></p>
-    <p id="address"></p>
-    <div id="map"></div>
+<script>
+    let map;
 
-    <script>
-        let map;
+    // Function to get the customer parameter from the URL
+    function getCustomer() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('customer') || 'Unknown'; // Default to 'Unknown' if not provided
+    }
 
-        function getLocation() {
-            if (navigator.geolocation) {
-                document.getElementById("status").textContent = "Getting location...";
-                navigator.geolocation.getCurrentPosition(showPosition, showError);
-            } else {
-                document.getElementById("status").textContent = "Geolocation is not supported by this browser.";
-            }
+    function getLocation() {
+        if (navigator.geolocation) {
+            document.getElementById("status").textContent = "Getting location...";
+            navigator.geolocation.getCurrentPosition(showPosition, showError);
+        } else {
+            document.getElementById("status").textContent = "Geolocation is not supported by this browser.";
+        }
+    }
+
+    function showPosition(position) {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        const customer = getCustomer();
+
+        document.getElementById("status").textContent = "Location retrieved successfully!";
+        document.getElementById("latitude").textContent = "Latitude: " + latitude;
+        document.getElementById("longitude").textContent = "Longitude: " + longitude;
+
+        // Initialize the map if not already done
+        if (!map) {
+            map = L.map('map').setView([latitude, longitude], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        } else {
+            map.setView([latitude, longitude], 13);
         }
 
-        function showPosition(position) {
-            const latitude = position.coords.latitude;
-            const longitude = position.coords.longitude;
+        // Add marker to the map
+        L.marker([latitude, longitude]).addTo(map)
+            .bindPopup("You are here!")
+            .openPopup();
 
-            document.getElementById("status").textContent = "Location retrieved successfully!";
-            document.getElementById("latitude").textContent = "Latitude: " + latitude;
-            document.getElementById("longitude").textContent = "Longitude: " + longitude;
-
-            // Initialize the map if not already done
-            if (!map) {
-                map = L.map('map').setView([latitude, longitude], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors'
-                }).addTo(map);
-            } else {
-                map.setView([latitude, longitude], 13);
-            }
-
-            // Add marker to the map
-            L.marker([latitude, longitude]).addTo(map)
-                .bindPopup("You are here!")
-                .openPopup();
-
-            // Get address using OpenStreetMap's Nominatim API
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
-                .then(response => response.json())
-                .then(data => {
-                    const address = data.display_name;
-                    document.getElementById("address").textContent = "Address: " + address;
-                })
-                .catch(error => {
-                    console.error('Error fetching address:', error);
-                    document.getElementById("address").textContent = "Unable to fetch address.";
-                });
-
-            // Send the latitude and longitude as JSON via HTTPS
-            const data = {
-                latitude: latitude,
-                longitude: longitude
-            };
-
-            fetch('https://prod-47.westus.logic.azure.com:443/workflows/0274d81394a94e74b2a48484901c345a/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=WXqgMESmaUJz93TObevAnWAqNAOHKaRSUmG4dGFO_HA', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            })
+        // Get address using OpenStreetMap's Nominatim API
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
             .then(response => response.json())
             .then(data => {
-                console.log('Success:', data);
+                const address = data.display_name;
+                document.getElementById("address").textContent = "Address: " + address;
             })
-            .catch((error) => {
-                console.error('Error:', error);
+            .catch(error => {
+                console.error('Error fetching address:', error);
+                document.getElementById("address").textContent = "Unable to fetch address.";
             });
-        }
 
-        function showError(error) {
-            switch(error.code) {
-                case error.PERMISSION_DENIED:
-                    document.getElementById("status").textContent = "User denied the request for Geolocation.";
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    document.getElementById("status").textContent = "Location information is unavailable.";
-                    break;
-                case error.TIMEOUT:
-                    document.getElementById("status").textContent = "The request to get user location timed out.";
-                    break;
-                case error.UNKNOWN_ERROR:
-                    document.getElementById("status").textContent = "An unknown error occurred.";
-                    break;
-            }
+        // Send the latitude, longitude, and customer as JSON via HTTPS
+        const data = {
+            latitude: latitude,
+            longitude: longitude,
+            customer: customer
+        };
+
+        fetch('https://prod-47.westus.logic.azure.com:443/workflows/0274d81394a94e74b2a48484901c345a/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=WXqgMESmaUJz93TObevAnWAqNAOHKaRSUmG4dGFO_HA', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Success:', data);
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+        });
+    }
+
+    function showError(error) {
+        switch(error.code) {
+            case error.PERMISSION_DENIED:
+                document.getElementById("status").textContent = "User denied the request for Geolocation.";
+                break;
+            case error.POSITION_UNAVAILABLE:
+                document.getElementById("status").textContent = "Location information is unavailable.";
+                break;
+            case error.TIMEOUT:
+                document.getElementById("status").textContent = "The request to get user location timed out.";
+                break;
+            case error.UNKNOWN_ERROR:
+                document.getElementById("status").textContent = "An unknown error occurred.";
+                break;
         }
-    </script>
-</body>
-</html>
+    }
+</script>
